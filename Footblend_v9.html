@@ -1,0 +1,1337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, orientation=landscape">
+<title>Footblend 26</title>
+<script src="players.js"></script>
+<style>
+
+:root{
+  --bg:        #080a0e;
+  --bg2:       #0e1118;
+  --bg3:       #141820;
+  --card:      #111520;
+  --border:    rgba(255,255,255,0.06);
+  --bactive:   rgba(59,130,246,0.45);
+  --acc:       #3b82f6;
+  --acc2:      #60a5fa;
+  --glow:      rgba(59,130,246,0.25);
+  --text:      #eef2ff;
+  --dim:       rgba(180,200,235,0.55);
+  --muted:     rgba(130,150,185,0.4);
+  --gold:      #f59e0b;
+  --green:     #10b981;
+  --red:       #ef4444;
+  --f-head:    'Arial Black','Arial Bold',Arial,sans-serif;
+  --f-body:    Arial,Helvetica,sans-serif;
+}
+
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;user-select:none;}
+
+html,body{
+  width:100%;height:100%;
+  overflow:hidden;
+  background:var(--bg);
+  color:var(--text);
+  font-family:var(--f-body);
+  font-size:14px;
+}
+
+/* ══════════════════════════════════════
+   TRANSITIONS
+══════════════════════════════════════ */
+.screen{
+  display:none;
+  position:fixed;inset:0;
+  flex-direction:column;
+  width:100%;height:100%;
+  opacity:0;
+  transform:translateY(18px) scale(0.98);
+  transition:opacity .35s ease,transform .35s cubic-bezier(.25,.8,.25,1);
+  pointer-events:none;
+}
+.screen.active{display:flex;opacity:1;transform:translateY(0) scale(1);pointer-events:all;}
+.screen.exit{opacity:0;transform:translateY(-18px) scale(0.98);}
+
+/* ══════════════════════════════════════
+   START SCREEN
+══════════════════════════════════════ */
+#startScreen{
+  background:radial-gradient(ellipse at 50% 35%,#0d1f3c 0%,#050709 65%);
+  justify-content:center;align-items:center;cursor:pointer;
+}
+.s-wrap{display:flex;flex-direction:row;align-items:center;gap:40px;padding:28px;}
+.s-left{display:flex;flex-direction:column;align-items:center;gap:16px;}
+.s-ball{
+  width:70px;height:70px;border-radius:50%;
+  border:2px solid rgba(59,130,246,0.25);
+  display:flex;align-items:center;justify-content:center;
+  font-size:34px;animation:spinBall 6s linear infinite;position:relative;
+}
+.s-ball::after{content:'';position:absolute;inset:-6px;border-radius:50%;border:1px solid rgba(59,130,246,0.1);animation:spinBall 10s linear infinite reverse;}
+@keyframes spinBall{from{transform:rotate(0deg);}to{transform:rotate(360deg);}}
+.s-right{display:flex;flex-direction:column;gap:12px;}
+.s-badge{font-size:10px;font-weight:700;letter-spacing:4px;color:var(--acc);text-transform:uppercase;background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.2);padding:4px 14px;border-radius:20px;align-self:flex-start;}
+.s-title{font-family:var(--f-head);font-size:clamp(28px,6vw,52px);font-weight:900;line-height:.95;letter-spacing:2px;color:#fff;text-shadow:0 0 40px rgba(59,130,246,0.4);}
+.s-title span{display:block;font-size:clamp(12px,2.5vw,18px);font-weight:400;letter-spacing:6px;color:var(--acc2);margin-top:4px;text-shadow:none;}
+.s-sub{font-size:11px;color:var(--dim);line-height:1.7;max-width:260px;}
+.s-tap{font-size:10px;font-weight:700;letter-spacing:4px;text-transform:uppercase;color:var(--muted);animation:blink 2s ease-in-out infinite;}
+@keyframes blink{0%,100%{opacity:0.2;}50%{opacity:0.9;}}
+
+/* ══════════════════════════════════════
+   LOADING SCREEN
+══════════════════════════════════════ */
+#loadingScreen{background:#040507;justify-content:center;align-items:center;}
+.l-wrap{display:flex;flex-direction:column;align-items:center;gap:18px;}
+.l-ring{width:54px;height:54px;border-radius:50%;border:3px solid rgba(59,130,246,0.12);border-top:3px solid var(--acc);animation:spin .75s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.l-name{font-family:var(--f-head);font-size:26px;font-weight:900;letter-spacing:5px;color:var(--acc2);}
+.l-track{width:180px;height:2px;background:rgba(255,255,255,0.06);border-radius:2px;overflow:hidden;}
+.l-fill{height:100%;width:0%;background:linear-gradient(90deg,var(--acc),var(--acc2));border-radius:2px;transition:width .08s linear;}
+.l-status{font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);}
+
+/* ══════════════════════════════════════
+   TOP BAR (shared)
+══════════════════════════════════════ */
+.topbar{
+  width:100%;display:flex;justify-content:space-between;align-items:center;
+  padding:7px 14px;background:rgba(6,8,12,0.95);
+  border-bottom:1px solid var(--border);flex-shrink:0;z-index:20;
+}
+.tb-logo{font-family:var(--f-head);font-size:15px;font-weight:900;letter-spacing:2px;color:var(--acc2);}
+.tb-label{font-size:9px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--muted);}
+
+/* ══════════════════════════════════════
+   LEAGUE SCREEN
+══════════════════════════════════════ */
+#leagueScreen{background:radial-gradient(ellipse at 25% 55%,#091525 0%,#050709 60%);}
+.ls-body{flex:1;display:flex;flex-direction:row;padding:14px;gap:14px;overflow:hidden;}
+.ls-left{flex:1;display:flex;flex-direction:column;gap:10px;overflow-y:auto;}
+.ls-left::-webkit-scrollbar{display:none;}
+.sec-label{font-size:9px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:var(--muted);flex-shrink:0;}
+
+.lcard{
+  background:var(--card);border:1px solid var(--border);border-radius:14px;
+  padding:12px 16px;cursor:pointer;position:relative;overflow:hidden;
+  box-shadow:0 6px 24px rgba(0,0,0,.55);
+  transition:transform .28s cubic-bezier(.34,1.56,.64,1),box-shadow .28s,border-color .28s,padding-bottom .28s;
+  flex-shrink:0;
+}
+.lcard::after{content:'';position:absolute;bottom:0;left:10%;width:80%;height:1px;background:linear-gradient(90deg,transparent,var(--acc),transparent);opacity:0;transition:opacity .28s;}
+.lcard.sel{border-color:var(--bactive);box-shadow:0 10px 36px rgba(0,0,0,.7),0 0 22px var(--glow);transform:translateY(-4px) scale(1.012);padding-bottom:18px;}
+.lcard.sel::after{opacity:1;}
+.lc-row1{display:flex;align-items:center;gap:10px;margin-bottom:4px;}
+.lc-flag{font-size:24px;line-height:1;}
+.lc-name{font-family:var(--f-head);font-size:17px;font-weight:900;color:var(--text);}
+.lc-meta{display:flex;gap:14px;font-size:10px;color:var(--dim);}
+.lc-dot{display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--acc);margin-right:5px;vertical-align:middle;}
+
+/* league preview panel on right */
+.ls-right{
+  width:38%;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:10px;
+  background:rgba(255,255,255,0.02);border:1px solid var(--border);border-radius:16px;padding:16px;
+}
+.lpr-title{font-family:var(--f-head);font-size:13px;font-weight:900;color:var(--text);text-align:center;}
+.lpr-flag{font-size:52px;line-height:1;}
+.lpr-clubs{font-size:11px;color:var(--dim);text-align:center;}
+.lpr-hint{font-size:9px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;text-align:center;opacity:.5;}
+
+.float-next{
+  position:fixed;bottom:14px;right:14px;
+  background:rgba(10,14,22,0.9);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+  border:1px solid rgba(59,130,246,0.35);color:var(--acc2);
+  border-radius:12px;padding:9px 18px;
+  font-family:var(--f-head);font-size:12px;font-weight:900;letter-spacing:2px;text-transform:uppercase;
+  cursor:pointer;display:none;align-items:center;gap:6px;
+  box-shadow:0 4px 20px rgba(0,0,0,.55),0 0 14px rgba(59,130,246,.18);
+  transition:transform .18s;z-index:100;
+  animation:popUp .3s cubic-bezier(.34,1.56,.64,1);
+}
+@keyframes popUp{from{opacity:0;transform:translateY(10px) scale(.9);}to{opacity:1;transform:translateY(0) scale(1);}}
+.float-next.show{display:flex;}
+.float-next:active{transform:scale(.95);}
+
+/* ══════════════════════════════════════
+   CLUB SCREEN
+══════════════════════════════════════ */
+#clubScreen{background:radial-gradient(ellipse at 70% 25%,#0c1928 0%,#050709 60%);}
+.cs-body{flex:1;display:flex;overflow:hidden;}
+.ci-panel{flex:1;padding:14px;display:flex;flex-direction:column;gap:10px;overflow:hidden;min-width:0;}
+.ci-empty{flex:1;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:8px;opacity:.18;}
+.ci-empty .big{font-size:42px;}
+.ci-empty .hint{font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--dim);}
+.ci-card{display:none;flex-direction:column;flex:1;}
+.ci-card.show{display:flex;}
+.ci-league{font-size:9px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--acc);margin-bottom:4px;}
+.ci-name{font-family:var(--f-head);font-size:clamp(18px,3.5vw,28px);font-weight:900;color:var(--text);line-height:1;margin-bottom:8px;word-break:break-word;}
+.ci-rating-row{display:flex;align-items:center;gap:8px;margin-bottom:10px;}
+.rbadge{background:linear-gradient(135deg,#2563eb,#60a5fa);color:#fff;font-family:var(--f-head);font-size:14px;font-weight:900;padding:3px 10px;border-radius:7px;}
+.rlabel{font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);}
+.divider{height:1px;background:var(--border);margin:2px 0 10px;}
+.stat-item{display:flex;align-items:flex-start;gap:10px;margin-bottom:8px;}
+.stat-ico{font-size:14px;width:20px;text-align:center;flex-shrink:0;}
+.stat-lbl{font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:2px;}
+.stat-val{font-size:12px;color:var(--text);word-break:break-word;}
+.bbar-track{height:3px;background:rgba(255,255,255,0.05);border-radius:2px;margin-top:4px;overflow:hidden;}
+.bbar-fill{height:100%;background:linear-gradient(90deg,var(--acc),var(--acc2));border-radius:2px;transition:width .55s ease;}
+.cl-panel{width:32vw;min-width:110px;max-width:150px;display:flex;flex-direction:column;border-left:1px solid var(--border);background:rgba(8,10,15,0.75);flex-shrink:0;}
+.clp-hdr{padding:9px 10px 6px;border-bottom:1px solid var(--border);font-size:9px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--muted);flex-shrink:0;}
+.clp-scroll{flex:1;overflow-y:auto;padding:5px;display:flex;flex-direction:column;gap:4px;}
+.clp-scroll::-webkit-scrollbar{width:2px;}
+.clp-scroll::-webkit-scrollbar-thumb{background:rgba(59,130,246,.25);border-radius:2px;}
+.ctab{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:7px;cursor:pointer;position:relative;overflow:hidden;transition:background .18s,border-color .18s;flex-shrink:0;}
+.ctab::before{content:'';position:absolute;left:0;top:0;width:3px;height:100%;background:var(--acc);opacity:0;transition:opacity .18s;}
+.ctab.active{border-color:rgba(59,130,246,.35);background:rgba(59,130,246,.07);}
+.ctab.active::before{opacity:1;}
+.ctab:active{transform:scale(.97);}
+.ct-name{font-size:11px;font-weight:700;color:var(--text);line-height:1.2;margin-bottom:2px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;}
+.ct-rat{font-size:9px;color:var(--muted);}
+.clp-confirm{flex-shrink:0;margin:6px;background:rgba(59,130,246,.1);border:1px solid rgba(59,130,246,.28);color:var(--acc2);border-radius:8px;padding:9px 6px;font-family:var(--f-head);font-size:11px;font-weight:900;letter-spacing:1.5px;text-transform:uppercase;cursor:pointer;text-align:center;display:none;transition:background .18s;}
+.clp-confirm.show{display:block;}
+.clp-confirm:active{background:rgba(59,130,246,.22);}
+
+/* ══════════════════════════════════════
+   HOME SCREEN  — FC MOBILE STYLE
+══════════════════════════════════════ */
+#homeScreen{
+  background:radial-gradient(ellipse at 30% 50%,#0a1628 0%,#060809 70%);
+  overflow:hidden;
+}
+
+/* ── HOME TOP BAR ── */
+.home-topbar{
+  width:100%;height:42px;
+  display:flex;justify-content:space-between;align-items:center;
+  padding:0 12px;
+  background:rgba(5,7,10,0.96);
+  border-bottom:1px solid var(--border);
+  flex-shrink:0;z-index:30;
+}
+.htb-left{display:flex;align-items:center;gap:8px;}
+.htb-clubbadge{
+  width:30px;height:30px;border-radius:8px;
+  background:linear-gradient(135deg,#1e3a5f,#0f2040);
+  border:1px solid rgba(59,130,246,0.3);
+  display:flex;align-items:center;justify-content:center;
+  font-size:16px;
+}
+.htb-info{display:flex;flex-direction:column;gap:1px;}
+.htb-club{font-family:var(--f-head);font-size:13px;font-weight:900;color:var(--text);letter-spacing:.3px;}
+.htb-league{font-size:9px;color:var(--muted);letter-spacing:1px;}
+.htb-right{display:flex;align-items:center;gap:12px;}
+.htb-stat{display:flex;align-items:center;gap:4px;}
+.htb-stat-ico{font-size:14px;}
+.htb-stat-val{font-family:var(--f-head);font-size:12px;font-weight:900;color:var(--text);}
+.htb-budget-val{color:var(--green);}
+
+/* ── HOME BODY ── */
+.home-body{
+  flex:1;
+  display:flex;
+  flex-direction:row;
+  overflow:hidden;
+  position:relative;
+}
+
+/* LEFT — player 3D space */
+.home-left{
+  flex:1;
+  position:relative;
+  display:flex;flex-direction:column;
+  justify-content:flex-end;
+  align-items:center;
+  padding-bottom:8px;
+  overflow:hidden;
+}
+
+/* placeholder glow where 3D model will go */
+.player-space{
+  position:absolute;
+  inset:0;
+  display:flex;flex-direction:column;
+  justify-content:center;align-items:center;
+  gap:8px;
+}
+.ps-glow{
+  width:120px;height:240px;
+  background:radial-gradient(ellipse at 50% 60%,rgba(59,130,246,0.08) 0%,transparent 70%);
+  position:absolute;bottom:0;
+  pointer-events:none;
+}
+.ps-silhouette{
+  font-size:96px;
+  opacity:0.04;
+  margin-bottom:20px;
+}
+.ps-label{
+  font-size:9px;font-weight:700;
+  letter-spacing:3px;text-transform:uppercase;
+  color:rgba(255,255,255,0.08);
+  position:absolute;bottom:14px;
+}
+
+/* club OVR badge bottom-left of left panel */
+.home-ovr{
+  position:absolute;bottom:12px;left:12px;
+  display:flex;align-items:center;gap:6px;
+  background:rgba(10,14,22,0.85);
+  border:1px solid rgba(59,130,246,0.25);
+  border-radius:10px;padding:5px 10px;
+  backdrop-filter:blur(8px);
+}
+.ovr-num{font-family:var(--f-head);font-size:20px;font-weight:900;color:var(--text);}
+.ovr-lbl{font-size:8px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--muted);}
+
+/* RIGHT — 3 action tabs */
+.home-right{
+  width:30%;
+  min-width:180px;max-width:240px;
+  display:flex;flex-direction:column;
+  padding:8px 8px 8px 0;
+  gap:6px;
+  justify-content:center;
+}
+
+/* BIG TAB — Next Match */
+.htab-big{
+  flex:1.6;
+  background:linear-gradient(135deg,#0f2040 0%,#0a1628 100%);
+  border:1px solid rgba(59,130,246,0.25);
+  border-radius:14px;
+  cursor:pointer;
+  position:relative;overflow:hidden;
+  display:flex;flex-direction:column;
+  justify-content:space-between;
+  padding:12px 12px 10px;
+  box-shadow:0 4px 20px rgba(0,0,0,0.5),0 0 12px rgba(59,130,246,0.08);
+  transition:transform .2s,box-shadow .2s,border-color .2s;
+}
+.htab-big::before{
+  content:'';position:absolute;inset:0;
+  background:linear-gradient(135deg,rgba(59,130,246,0.06) 0%,transparent 60%);
+  pointer-events:none;
+}
+.htab-big:active{transform:scale(.97);}
+.htab-big-label{
+  font-size:9px;font-weight:700;letter-spacing:3px;
+  text-transform:uppercase;color:var(--acc);
+}
+.htab-big-title{
+  font-family:var(--f-head);
+  font-size:clamp(14px,2vw,20px);
+  font-weight:900;color:var(--text);
+  line-height:1.1;margin-top:4px;
+}
+.htab-big-sub{font-size:10px;color:var(--dim);margin-top:3px;}
+.htab-big-bottom{
+  display:flex;align-items:center;justify-content:space-between;
+  margin-top:8px;
+}
+.htab-play-btn{
+  background:linear-gradient(135deg,var(--acc),var(--acc2));
+  color:#fff;font-family:var(--f-head);
+  font-size:11px;font-weight:900;letter-spacing:1px;
+  padding:6px 14px;border-radius:8px;
+  text-transform:uppercase;
+}
+.htab-big-icon{font-size:28px;opacity:.5;}
+
+/* glow line at bottom of big tab */
+.htab-big::after{
+  content:'';position:absolute;
+  bottom:0;left:10%;width:80%;height:1px;
+  background:linear-gradient(90deg,transparent,var(--acc),transparent);
+  opacity:.4;
+}
+
+/* SMALL TABS ROW */
+.htab-row{
+  flex:1;
+  display:flex;gap:6px;
+}
+
+/* SMALL TAB */
+.htab-small{
+  flex:1;
+  background:rgba(14,17,24,0.9);
+  border:1px solid var(--border);
+  border-radius:12px;
+  cursor:pointer;
+  display:flex;flex-direction:column;
+  justify-content:center;align-items:center;
+  gap:5px;padding:8px 4px;
+  position:relative;overflow:hidden;
+  box-shadow:0 4px 16px rgba(0,0,0,0.45);
+  transition:transform .2s,border-color .2s,box-shadow .2s;
+}
+.htab-small::after{
+  content:'';position:absolute;
+  bottom:0;left:15%;width:70%;height:1px;
+  opacity:0;transition:opacity .2s;
+}
+.htab-squad::after{background:linear-gradient(90deg,transparent,var(--acc2),transparent);}
+.htab-training::after{background:linear-gradient(90deg,transparent,var(--gold),transparent);}
+.htab-small:active{transform:scale(.95);}
+.htab-small.htab-squad{border-color:rgba(59,130,246,0.15);}
+.htab-small.htab-training{border-color:rgba(245,158,11,0.15);}
+.htab-small:hover::after,.htab-small:active::after{opacity:1;}
+
+.hts-icon{font-size:22px;}
+.hts-name{
+  font-family:var(--f-head);
+  font-size:11px;font-weight:900;
+  letter-spacing:.5px;color:var(--text);
+  text-align:center;
+}
+.hts-sub{font-size:8px;color:var(--muted);text-align:center;letter-spacing:.5px;}
+
+/* ── BOTTOM NAV — 4 tabs ── */
+.home-bottom{
+  width:100%;
+  height:44px;
+  display:flex;
+  background:rgba(5,7,10,0.97);
+  border-top:1px solid var(--border);
+  flex-shrink:0;z-index:30;
+}
+
+.hbnav{
+  flex:1;
+  display:flex;flex-direction:row;
+  align-items:center;justify-content:center;
+  gap:7px;
+  cursor:pointer;
+  border-right:1px solid var(--border);
+  position:relative;
+  transition:background .2s;
+}
+.hbnav:last-child{border-right:none;}
+.hbnav:active{background:rgba(59,130,246,0.05);}
+
+/* active indicator line on top */
+.hbnav.active-nav::before{
+  content:'';position:absolute;top:0;left:20%;width:60%;height:2px;
+  background:var(--acc);border-radius:0 0 2px 2px;
+}
+
+.hbnav-icon{font-size:16px;line-height:1;}
+.hbnav-label{
+  font-family:var(--f-head);
+  font-size:10px;font-weight:900;
+  letter-spacing:.5px;text-transform:uppercase;
+  color:var(--muted);
+}
+.hbnav.active-nav .hbnav-label{color:var(--acc2);}
+
+/* transfer market tab — accent green */
+.hbnav-market .hbnav-label{color:rgba(16,185,129,0.6);}
+.hbnav-market.active-nav .hbnav-label{color:var(--green);}
+.hbnav-market.active-nav::before{background:var(--green);}
+
+/* ══════════════════════════════════════
+   SQUAD SCREEN
+══════════════════════════════════════ */
+#squadScreen{ background:#050709; }
+
+.sq-body{ flex:1;display:flex;flex-direction:row;overflow:hidden; }
+
+.sq-left{ flex:1;display:flex;flex-direction:column;overflow:hidden; }
+
+.sq-pitch{
+  flex:1;
+  background:#060809;
+  border:1px solid rgba(255,255,255,0.04);
+  margin:8px 8px 4px 8px;
+  border-radius:12px;
+  display:flex;flex-direction:column;
+  justify-content:space-around;align-items:center;
+  padding:8px 4px;position:relative;overflow:hidden;
+}
+.sq-pitch::before{
+  content:'';position:absolute;inset:10px;
+  border:1px solid rgba(255,255,255,0.04);
+  border-radius:8px;pointer-events:none;
+}
+.sq-pitch::after{
+  content:'';position:absolute;
+  left:50%;top:35%;transform:translateX(-50%);
+  width:60px;height:60px;border-radius:50%;
+  border:1px solid rgba(255,255,255,0.04);
+  pointer-events:none;
+}
+
+.pitch-row{
+  display:flex;flex-direction:row;
+  justify-content:center;align-items:center;
+  gap:10px;width:100%;
+}
+
+.pitch-slot{
+  display:flex;flex-direction:column;
+  align-items:center;gap:2px;
+  cursor:pointer;min-width:44px;
+  transition:transform .18s;
+}
+.pitch-slot:active{ transform:scale(.9); }
+.pitch-slot.sel-player .ps-rating{
+  background:linear-gradient(135deg,#3b82f6,#60a5fa);
+  box-shadow:0 0 12px rgba(59,130,246,0.5);
+  border-color:rgba(59,130,246,0.6);
+}
+.ps-rating{
+  width:38px;height:38px;border-radius:50%;
+  background:rgba(18,22,32,0.98);
+  border:2px solid rgba(255,255,255,0.1);
+  display:flex;align-items:center;justify-content:center;
+  font-size:12px;font-weight:900;color:#eef2ff;
+  font-family:'Arial Black',Arial,sans-serif;
+  transition:background .2s,box-shadow .2s;
+}
+.ps-name{
+  font-size:9px;font-weight:700;color:#eef2ff;
+  text-align:center;max-width:52px;
+  overflow:hidden;white-space:nowrap;text-overflow:ellipsis;
+}
+.ps-pos-lbl{
+  font-size:8px;color:rgba(130,150,185,0.45);
+  text-align:center;
+}
+
+.sq-subs{
+  height:82px;flex-shrink:0;
+  background:rgba(10,12,18,0.85);
+  border:1px solid rgba(255,255,255,0.05);
+  margin:0 8px 8px 8px;border-radius:10px;
+  padding:6px 10px;
+}
+.subs-label{
+  font-size:9px;font-weight:700;letter-spacing:2px;
+  text-transform:uppercase;color:rgba(130,150,185,0.45);
+  margin-bottom:5px;
+}
+.subs-row{
+  display:flex;flex-direction:row;gap:12px;
+  overflow-x:auto;align-items:center;height:50px;
+}
+.subs-row::-webkit-scrollbar{ display:none; }
+
+.sub-slot{
+  display:flex;flex-direction:column;
+  align-items:center;gap:2px;
+  cursor:pointer;flex-shrink:0;
+  transition:transform .18s;
+}
+.sub-slot:active{ transform:scale(.9); }
+.sub-slot.sel-player .sub-rating{
+  background:linear-gradient(135deg,#3b82f6,#60a5fa);
+  border-color:rgba(59,130,246,0.6);
+}
+.sub-rating{
+  width:30px;height:30px;border-radius:50%;
+  background:rgba(18,22,32,0.98);
+  border:1px solid rgba(255,255,255,0.08);
+  display:flex;align-items:center;justify-content:center;
+  font-size:10px;font-weight:900;color:#eef2ff;
+  font-family:'Arial Black',Arial,sans-serif;
+}
+.sub-name{
+  font-size:8px;font-weight:700;
+  color:rgba(180,200,235,0.7);
+  text-align:center;max-width:44px;
+  overflow:hidden;white-space:nowrap;text-overflow:ellipsis;
+}
+.sub-pos-lbl{ font-size:7px;color:rgba(130,150,185,0.35); }
+
+.sq-right{
+  width:28%;min-width:160px;max-width:220px;
+  border-left:1px solid rgba(255,255,255,0.05);
+  background:rgba(8,10,16,0.85);
+  display:flex;flex-direction:column;
+  overflow:hidden;flex-shrink:0;
+}
+.sqr-empty{
+  flex:1;display:flex;flex-direction:column;
+  justify-content:center;align-items:center;gap:6px;
+}
+.sqr-card{
+  display:none;flex-direction:column;
+  padding:12px 10px;overflow-y:auto;flex:1;
+}
+.sqr-card.show{ display:flex; }
+.sqr-card::-webkit-scrollbar{ width:2px; }
+.sqr-card::-webkit-scrollbar-thumb{ background:rgba(59,130,246,0.2); }
+
+.sqr-top{ display:flex;flex-direction:row;align-items:center;gap:8px;margin-bottom:8px; }
+.sqr-ovr{
+  font-family:'Arial Black',Arial,sans-serif;
+  font-size:32px;font-weight:900;color:#eef2ff;line-height:1;
+}
+.sqr-posname{ display:flex;flex-direction:column;gap:2px; }
+.sqr-pos{ font-size:10px;font-weight:700;color:#3b82f6;letter-spacing:1px;text-transform:uppercase; }
+.sqr-pname{ font-family:'Arial Black',Arial,sans-serif;font-size:12px;font-weight:900;color:#eef2ff;line-height:1.1; }
+.sqr-nat{ font-size:10px;color:rgba(130,150,185,0.5); }
+.sqr-divider{ height:1px;background:rgba(255,255,255,0.05);margin:6px 0; }
+
+.sqr-info-grid{ display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-bottom:4px; }
+.sqr-info-row{
+  display:flex;flex-direction:column;gap:1px;
+  background:rgba(255,255,255,0.02);border-radius:6px;padding:4px 6px;
+}
+.sqr-info-lbl{ font-size:8px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:rgba(130,150,185,0.4); }
+.sqr-info-val{ font-size:12px;font-weight:700;color:#eef2ff; }
+
+.sqr-attrs{ display:flex;flex-direction:column;gap:5px; }
+.sqr-attr-row{ display:flex;align-items:center;gap:5px; }
+.sqr-attr-lbl{ font-size:9px;font-weight:700;color:rgba(130,150,185,0.5);width:56px;flex-shrink:0;text-align:right; }
+.sqr-attr-bar{ flex:1;height:4px;background:rgba(255,255,255,0.05);border-radius:2px;overflow:hidden; }
+.sqr-attr-fill{ height:100%;border-radius:2px;transition:width .4s ease; }
+.sqr-attr-val{ font-size:11px;font-weight:900;color:#eef2ff;width:22px;text-align:right;font-family:'Arial Black',Arial,sans-serif; }
+
+</style>
+</head>
+<body>
+
+<!-- ══ START SCREEN ══ -->
+<div id="startScreen" class="screen active">
+  <div class="s-wrap">
+    <div class="s-left">
+      <div class="s-ball">⚽</div>
+    </div>
+    <div class="s-right">
+      <div class="s-badge">Season 2026</div>
+      <div class="s-title">FOOTBLEND<span>MANAGER 26</span></div>
+      <div class="s-sub">Build your dynasty. Pick your club.<br>Write football history.</div>
+      <div class="s-tap">Tap anywhere to begin</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ LOADING SCREEN ══ -->
+<div id="loadingScreen" class="screen">
+  <div class="l-wrap">
+    <div class="l-ring"></div>
+    <div class="l-name">FOOTBLEND</div>
+    <div class="l-track"><div class="l-fill" id="loadFill"></div></div>
+    <div class="l-status" id="loadStatus">Initialising...</div>
+  </div>
+</div>
+
+<!-- ══ LEAGUE SCREEN ══ -->
+<div id="leagueScreen" class="screen">
+  <div class="topbar">
+    <div class="tb-logo">⚽ FOOTBLEND</div>
+    <div class="tb-label">Choose League</div>
+  </div>
+  <div class="ls-body">
+    <div class="ls-left">
+      <div class="sec-label">Select your competition</div>
+      <div id="leagueList" style="display:flex;flex-direction:column;gap:10px;overflow-y:auto;flex:1;padding-bottom:10px;"></div>
+    </div>
+    <div class="ls-right" id="leaguePreview">
+      <div class="lpr-flag" id="lpFlag">🏆</div>
+      <div class="lpr-title" id="lpName">Pick a league</div>
+      <div class="lpr-clubs" id="lpClubs"></div>
+      <div class="lpr-hint">Tap to select</div>
+    </div>
+  </div>
+  <button class="float-next" id="leagueNextBtn" onclick="confirmLeague()">Continue &#8594;</button>
+</div>
+
+<!-- ══ CLUB SCREEN ══ -->
+<div id="clubScreen" class="screen">
+  <div class="topbar">
+    <div class="tb-logo" id="csLeagueName">⚽ FOOTBLEND</div>
+    <div class="tb-label">Choose Club</div>
+  </div>
+  <div class="cs-body">
+    <div class="ci-panel">
+      <div class="ci-empty" id="ciEmpty">
+        <div class="big">🏟️</div>
+        <div class="hint">Select a club</div>
+      </div>
+      <div class="ci-card" id="ciCard">
+        <div class="ci-league" id="ciLeague"></div>
+        <div class="ci-name"   id="ciName"></div>
+        <div class="ci-rating-row">
+          <div class="rbadge" id="ciRating"></div>
+          <div class="rlabel">Overall</div>
+        </div>
+        <div class="divider"></div>
+        <div class="stat-item">
+          <div class="stat-ico">🏟️</div>
+          <div><div class="stat-lbl">Stadium</div><div class="stat-val" id="ciStadium"></div></div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-ico">💰</div>
+          <div style="flex:1;min-width:0;">
+            <div class="stat-lbl">Transfer Budget</div>
+            <div class="stat-val" id="ciBudget"></div>
+            <div class="bbar-track"><div class="bbar-fill" id="ciBudgetBar"></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="cl-panel">
+      <div class="clp-hdr">Clubs</div>
+      <div class="clp-scroll" id="clubList"></div>
+      <button class="clp-confirm" id="clubConfirmBtn" onclick="confirmClub()">CONFIRM &#8594;</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ HOME SCREEN ══ -->
+<div id="homeScreen" class="screen">
+
+  <!-- TOP BAR -->
+  <div class="home-topbar">
+    <div class="htb-left">
+      <div class="htb-clubbadge">🏟️</div>
+      <div class="htb-info">
+        <div class="htb-club" id="hClubName">Club Name</div>
+        <div class="htb-league" id="hLeagueName">League</div>
+      </div>
+    </div>
+    <div class="htb-right">
+      <div class="htb-stat">
+        <div class="htb-stat-ico">⭐</div>
+        <div class="htb-stat-val" id="hOvr">--</div>
+      </div>
+      <div class="htb-stat">
+        <div class="htb-stat-ico">💰</div>
+        <div class="htb-stat-val htb-budget-val" id="hBudget">--</div>
+      </div>
+      <div class="htb-stat">
+        <div class="htb-stat-ico">🏆</div>
+        <div class="htb-stat-val">0</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- BODY -->
+  <div class="home-body">
+
+    <!-- LEFT: empty space for 3D player later -->
+    <div class="home-left">
+      <div class="player-space">
+        <div class="ps-silhouette">🧍</div>
+        <div class="ps-glow"></div>
+        <div class="ps-label">Player model coming soon</div>
+      </div>
+      <!-- OVR badge bottom left -->
+      <div class="home-ovr">
+        <div class="ovr-num" id="hOvrBig">--</div>
+        <div class="ovr-lbl">OVR</div>
+      </div>
+    </div>
+
+    <!-- RIGHT: action tabs -->
+    <div class="home-right">
+
+      <!-- BIG TAB: Next Match -->
+      <div class="htab-big" onclick="homeTap('nextmatch')">
+        <div>
+          <div class="htab-big-label">Next Fixture</div>
+          <div class="htab-big-title" id="hNextMatchTitle">Season Opener</div>
+          <div class="htab-big-sub" id="hNextMatchSub">Tap to simulate</div>
+        </div>
+        <div class="htab-big-bottom">
+          <div class="htab-play-btn">PLAY &#9654;</div>
+          <div class="htab-big-icon">⚽</div>
+        </div>
+      </div>
+
+      <!-- SMALL TABS ROW -->
+      <div class="htab-row">
+
+        <!-- Squad -->
+        <div class="htab-small htab-squad" onclick="homeTap('squad')">
+          <div class="hts-icon">👥</div>
+          <div class="hts-name">SQUAD</div>
+          <div class="hts-sub">Manage players</div>
+        </div>
+
+        <!-- Training -->
+        <div class="htab-small htab-training" onclick="homeTap('training')">
+          <div class="hts-icon">🎯</div>
+          <div class="hts-name">TRAINING</div>
+          <div class="hts-sub">Boost attributes</div>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+
+  <!-- BOTTOM: 4 nav tabs -->
+  <div class="home-bottom">
+
+    <div class="hbnav active-nav" onclick="homeTap('table')">
+      <div class="hbnav-icon">📊</div>
+      <div class="hbnav-label">League Table</div>
+    </div>
+
+    <div class="hbnav" onclick="homeTap('finances')">
+      <div class="hbnav-icon">💰</div>
+      <div class="hbnav-label">Finances</div>
+    </div>
+
+    <div class="hbnav" onclick="homeTap('calendar')">
+      <div class="hbnav-icon">📅</div>
+      <div class="hbnav-label">Calendar</div>
+    </div>
+
+    <div class="hbnav hbnav-market" onclick="homeTap('transfers')">
+      <div class="hbnav-icon">🔄</div>
+      <div class="hbnav-label">Transfer Market</div>
+    </div>
+
+  </div>
+
+</div><!-- end homeScreen -->
+
+<!-- SQUAD SCREEN -->
+<div id="squadScreen" class="screen">
+  <div class="topbar">
+    <div style="display:flex;align-items:center;gap:10px;">
+      <button onclick="showScreen('homeScreen')" style="background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.3);color:#60a5fa;border-radius:8px;padding:5px 12px;font-size:11px;font-weight:900;cursor:pointer;">&#8592; BACK</button>
+      <div class="tb-logo" id="sqClubName">SQUAD</div>
+    </div>
+    <div class="tb-label" id="sqLeagueName">SQUAD MANAGEMENT</div>
+  </div>
+  <div class="sq-body">
+    <div class="sq-left">
+      <div class="sq-pitch">
+        <div class="pitch-row">
+          <div class="pitch-slot" id="slot-GK" onclick="selectSlot('GK')"><div class="ps-rating" id="rating-GK">--</div><div class="ps-name" id="name-GK">GK</div><div class="ps-pos-lbl">GK</div></div>
+        </div>
+        <div class="pitch-row">
+          <div class="pitch-slot" id="slot-LB"  onclick="selectSlot('LB')"> <div class="ps-rating" id="rating-LB">--</div><div class="ps-name" id="name-LB">LB</div><div class="ps-pos-lbl">LB</div></div>
+          <div class="pitch-slot" id="slot-CB1" onclick="selectSlot('CB1')"><div class="ps-rating" id="rating-CB1">--</div><div class="ps-name" id="name-CB1">CB</div><div class="ps-pos-lbl">CB</div></div>
+          <div class="pitch-slot" id="slot-CB2" onclick="selectSlot('CB2')"><div class="ps-rating" id="rating-CB2">--</div><div class="ps-name" id="name-CB2">CB</div><div class="ps-pos-lbl">CB</div></div>
+          <div class="pitch-slot" id="slot-RB"  onclick="selectSlot('RB')"> <div class="ps-rating" id="rating-RB">--</div><div class="ps-name" id="name-RB">RB</div><div class="ps-pos-lbl">RB</div></div>
+        </div>
+        <div class="pitch-row">
+          <div class="pitch-slot" id="slot-CM1" onclick="selectSlot('CM1')"><div class="ps-rating" id="rating-CM1">--</div><div class="ps-name" id="name-CM1">CM</div><div class="ps-pos-lbl">CM</div></div>
+          <div class="pitch-slot" id="slot-CDM" onclick="selectSlot('CDM')"><div class="ps-rating" id="rating-CDM">--</div><div class="ps-name" id="name-CDM">CDM</div><div class="ps-pos-lbl">CDM</div></div>
+          <div class="pitch-slot" id="slot-CM2" onclick="selectSlot('CM2')"><div class="ps-rating" id="rating-CM2">--</div><div class="ps-name" id="name-CM2">CM</div><div class="ps-pos-lbl">CM</div></div>
+        </div>
+        <div class="pitch-row">
+          <div class="pitch-slot" id="slot-LW" onclick="selectSlot('LW')"><div class="ps-rating" id="rating-LW">--</div><div class="ps-name" id="name-LW">LW</div><div class="ps-pos-lbl">LW</div></div>
+          <div class="pitch-slot" id="slot-ST" onclick="selectSlot('ST')"><div class="ps-rating" id="rating-ST">--</div><div class="ps-name" id="name-ST">ST</div><div class="ps-pos-lbl">ST</div></div>
+          <div class="pitch-slot" id="slot-RW" onclick="selectSlot('RW')"><div class="ps-rating" id="rating-RW">--</div><div class="ps-name" id="name-RW">RW</div><div class="ps-pos-lbl">RW</div></div>
+        </div>
+      </div>
+      <div class="sq-subs">
+        <div class="subs-label">Substitutes</div>
+        <div class="subs-row" id="subsRow"></div>
+      </div>
+    </div>
+    <div class="sq-right">
+      <div class="sqr-empty" id="sqrEmpty">
+        <div style="font-size:36px;opacity:.12;">&#128100;</div>
+        <div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:rgba(130,150,185,0.3);">Select a player</div>
+      </div>
+      <div class="sqr-card" id="sqrCard">
+        <div class="sqr-top">
+          <div class="sqr-ovr" id="sqrOvr">--</div>
+          <div class="sqr-posname">
+            <div class="sqr-pos"   id="sqrPos">POS</div>
+            <div class="sqr-pname" id="sqrName">Player</div>
+            <div class="sqr-nat"   id="sqrNat">Nation</div>
+          </div>
+        </div>
+        <div class="sqr-divider"></div>
+        <div class="sqr-info-grid">
+          <div class="sqr-info-row"><span class="sqr-info-lbl">Age</span><span class="sqr-info-val" id="sqrAge">--</span></div>
+          <div class="sqr-info-row"><span class="sqr-info-lbl">Height</span><span class="sqr-info-val" id="sqrHt">--</span></div>
+          <div class="sqr-info-row"><span class="sqr-info-lbl">Weight</span><span class="sqr-info-val" id="sqrWt">--</span></div>
+          <div class="sqr-info-row"><span class="sqr-info-lbl">Foot</span><span class="sqr-info-val" id="sqrFt">--</span></div>
+        </div>
+        <div class="sqr-divider"></div>
+        <div class="sqr-attrs">
+          <div class="sqr-attr-row"><span class="sqr-attr-lbl">Pace</span><div class="sqr-attr-bar"><div class="sqr-attr-fill" id="bar-pac"></div></div><span class="sqr-attr-val" id="val-pac">--</span></div>
+          <div class="sqr-attr-row"><span class="sqr-attr-lbl">Shooting</span><div class="sqr-attr-bar"><div class="sqr-attr-fill" id="bar-sho"></div></div><span class="sqr-attr-val" id="val-sho">--</span></div>
+          <div class="sqr-attr-row"><span class="sqr-attr-lbl">Passing</span><div class="sqr-attr-bar"><div class="sqr-attr-fill" id="bar-pas"></div></div><span class="sqr-attr-val" id="val-pas">--</span></div>
+          <div class="sqr-attr-row"><span class="sqr-attr-lbl">Dribbling</span><div class="sqr-attr-bar"><div class="sqr-attr-fill" id="bar-dri"></div></div><span class="sqr-attr-val" id="val-dri">--</span></div>
+          <div class="sqr-attr-row"><span class="sqr-attr-lbl">Defending</span><div class="sqr-attr-bar"><div class="sqr-attr-fill" id="bar-def"></div></div><span class="sqr-attr-val" id="val-def">--</span></div>
+          <div class="sqr-attr-row"><span class="sqr-attr-lbl">Physical</span><div class="sqr-attr-bar"><div class="sqr-attr-fill" id="bar-phy"></div></div><span class="sqr-attr-val" id="val-phy">--</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div><!-- end squadScreen -->
+
+<script>
+
+/* ══════════════════════════
+   LEAGUE DATA
+══════════════════════════ */
+var LEAGUES = {
+  "Premier League":{
+    flag:"🏴󠁧󠁢󠁥󠁮󠁧󠁿",country:"England",
+    clubs:[
+      {name:"Manchester City",   rating:92,stadium:"Etihad Stadium",           budget:"€250M",bval:100},
+      {name:"Arsenal",           rating:89,stadium:"Emirates Stadium",          budget:"€180M",bval:72},
+      {name:"Liverpool",         rating:91,stadium:"Anfield",                   budget:"€220M",bval:88},
+      {name:"Chelsea",           rating:86,stadium:"Stamford Bridge",           budget:"€160M",bval:64},
+      {name:"Manchester United", rating:85,stadium:"Old Trafford",              budget:"€200M",bval:80},
+      {name:"Tottenham",         rating:84,stadium:"Tottenham Hotspur Stadium", budget:"€170M",bval:68},
+      {name:"Newcastle United",  rating:84,stadium:"St James Park",            budget:"€150M",bval:60},
+      {name:"Aston Villa",       rating:83,stadium:"Villa Park",                budget:"€120M",bval:48},
+      {name:"Brighton",          rating:80,stadium:"Amex Stadium",              budget:"€80M", bval:32},
+      {name:"West Ham",          rating:79,stadium:"London Stadium",            budget:"€90M", bval:36},
+      {name:"Wolves",            rating:77,stadium:"Molineux",                  budget:"€65M", bval:26},
+      {name:"Everton",           rating:76,stadium:"Goodison Park",             budget:"€60M", bval:24},
+      {name:"Crystal Palace",    rating:76,stadium:"Selhurst Park",             budget:"€55M", bval:22},
+      {name:"Fulham",            rating:75,stadium:"Craven Cottage",            budget:"€50M", bval:20},
+      {name:"Brentford",         rating:75,stadium:"Gtech Community Stadium",   budget:"€50M", bval:20},
+      {name:"Bournemouth",       rating:74,stadium:"Vitality Stadium",          budget:"€40M", bval:16},
+      {name:"Nottingham Forest", rating:75,stadium:"City Ground",               budget:"€45M", bval:18},
+      {name:"Burnley",           rating:72,stadium:"Turf Moor",                 budget:"€35M", bval:14},
+      {name:"Luton Town",        rating:70,stadium:"Kenilworth Road",           budget:"€20M", bval:8},
+      {name:"Sheffield United",  rating:70,stadium:"Bramall Lane",              budget:"€25M", bval:10}
+    ]
+  },
+  "La Liga":{
+    flag:"🇪🇸",country:"Spain",
+    clubs:[
+      {name:"Real Madrid",     rating:94,stadium:"Santiago Bernabeu",     budget:"€300M",bval:100},
+      {name:"Barcelona",       rating:91,stadium:"Camp Nou",              budget:"€240M",bval:80},
+      {name:"Atletico Madrid", rating:88,stadium:"Metropolitano",         budget:"€170M",bval:57},
+      {name:"Sevilla",         rating:83,stadium:"Ramon Sanchez Pizjuan", budget:"€90M", bval:30},
+      {name:"Valencia",        rating:80,stadium:"Mestalla",              budget:"€70M", bval:23},
+      {name:"Villarreal",      rating:82,stadium:"La Ceramica",           budget:"€80M", bval:27},
+      {name:"Real Sociedad",   rating:83,stadium:"Reale Arena",           budget:"€85M", bval:28},
+      {name:"Real Betis",      rating:81,stadium:"Benito Villamarin",     budget:"€75M", bval:25},
+      {name:"Athletic Club",   rating:82,stadium:"San Mames",             budget:"€80M", bval:27},
+      {name:"Getafe",          rating:75,stadium:"Coliseum",              budget:"€35M", bval:12},
+      {name:"Mallorca",        rating:74,stadium:"Visit Mallorca Estadi", budget:"€30M", bval:10},
+      {name:"Osasuna",         rating:76,stadium:"El Sadar",              budget:"€40M", bval:13},
+      {name:"Celta Vigo",      rating:76,stadium:"Balaidos",              budget:"€40M", bval:13},
+      {name:"Girona",          rating:82,stadium:"Montilivi",             budget:"€65M", bval:22},
+      {name:"Las Palmas",      rating:72,stadium:"Gran Canaria",          budget:"€20M", bval:7},
+      {name:"Alaves",          rating:72,stadium:"Mendizorroza",          budget:"€22M", bval:7},
+      {name:"Rayo Vallecano",  rating:74,stadium:"Vallecas",              budget:"€25M", bval:8},
+      {name:"Granada",         rating:71,stadium:"Nuevo Los Carmenes",    budget:"€18M", bval:6},
+      {name:"Cadiz",           rating:70,stadium:"Nuevo Mirandilla",      budget:"€15M", bval:5},
+      {name:"Almeria",         rating:70,stadium:"Power Horse Stadium",   budget:"€15M", bval:5}
+    ]
+  },
+  "Serie A":{
+    flag:"🇮🇹",country:"Italy",
+    clubs:[
+      {name:"Inter Milan",  rating:90,stadium:"San Siro",               budget:"€190M",bval:63},
+      {name:"AC Milan",     rating:88,stadium:"San Siro",               budget:"€170M",bval:57},
+      {name:"Juventus",     rating:89,stadium:"Allianz Stadium",        budget:"€210M",bval:70},
+      {name:"Napoli",       rating:86,stadium:"Diego Maradona Stadium", budget:"€140M",bval:47},
+      {name:"Roma",         rating:84,stadium:"Stadio Olimpico",        budget:"€110M",bval:37},
+      {name:"Lazio",        rating:82,stadium:"Stadio Olimpico",        budget:"€90M", bval:30},
+      {name:"Atalanta",     rating:84,stadium:"Gewiss Stadium",         budget:"€100M",bval:33},
+      {name:"Fiorentina",   rating:80,stadium:"Artemio Franchi",        budget:"€70M", bval:23},
+      {name:"Torino",       rating:77,stadium:"Olimpico Grande Torino", budget:"€50M", bval:17},
+      {name:"Bologna",      rating:79,stadium:"Renato Dall'Ara",        budget:"€60M", bval:20},
+      {name:"Udinese",      rating:74,stadium:"Bluenergy Stadium",      budget:"€35M", bval:12},
+      {name:"Sassuolo",     rating:74,stadium:"Mapei Stadium",          budget:"€35M", bval:12},
+      {name:"Monza",        rating:75,stadium:"U-Power Stadium",        budget:"€40M", bval:13},
+      {name:"Genoa",        rating:74,stadium:"Luigi Ferraris",         budget:"€35M", bval:12},
+      {name:"Cagliari",     rating:72,stadium:"Unipol Domus",           budget:"€20M", bval:7},
+      {name:"Lecce",        rating:72,stadium:"Via del Mare",           budget:"€20M", bval:7},
+      {name:"Empoli",       rating:71,stadium:"Carlo Castellani",       budget:"€18M", bval:6},
+      {name:"Frosinone",    rating:70,stadium:"Benito Stirpe",          budget:"€15M", bval:5},
+      {name:"Salernitana",  rating:69,stadium:"Arechi",                 budget:"€12M", bval:4},
+      {name:"Verona",       rating:71,stadium:"Bentegodi",              budget:"€18M", bval:6}
+    ]
+  },
+  "Bundesliga":{
+    flag:"🇩🇪",country:"Germany",
+    clubs:[
+      {name:"Bayer Leverkusen",    rating:89,stadium:"BayArena",              budget:"€180M",bval:72},
+      {name:"Bayern Munich",       rating:90,stadium:"Allianz Arena",         budget:"€280M",bval:100},
+      {name:"Borussia Dortmund",   rating:85,stadium:"Signal Iduna Park",     budget:"€160M",bval:64},
+      {name:"RB Leipzig",          rating:85,stadium:"Red Bull Arena",        budget:"€140M",bval:56},
+      {name:"Stuttgart",           rating:82,stadium:"MHPArena",              budget:"€80M", bval:32},
+      {name:"Eintracht Frankfurt", rating:81,stadium:"Deutsche Bank Park",    budget:"€75M", bval:30},
+      {name:"Borussia Monchengladbach",rating:79,stadium:"Borussia-Park",     budget:"€60M", bval:24},
+      {name:"Freiburg",            rating:79,stadium:"Europa-Park Stadion",   budget:"€55M", bval:22},
+      {name:"Hoffenheim",          rating:78,stadium:"PreZero Arena",         budget:"€50M", bval:20},
+      {name:"Werder Bremen",       rating:77,stadium:"Weserstadion",          budget:"€45M", bval:18},
+      {name:"Wolfsburg",           rating:77,stadium:"Volkswagen Arena",      budget:"€50M", bval:20},
+      {name:"Union Berlin",        rating:76,stadium:"Stadion An der Alten Forsterei",budget:"€40M",bval:16},
+      {name:"Augsburg",            rating:74,stadium:"WWK Arena",             budget:"€30M", bval:12},
+      {name:"Mainz",               rating:75,stadium:"MEWA Arena",            budget:"€35M", bval:14},
+      {name:"Heidenheim",          rating:72,stadium:"Voith-Arena",           budget:"€20M", bval:8},
+      {name:"Darmstadt",           rating:70,stadium:"Merck-Stadion",         budget:"€15M", bval:6},
+      {name:"Koln",                rating:73,stadium:"RheinEnergieStadion",   budget:"€28M", bval:11},
+      {name:"Bochum",              rating:71,stadium:"Vonovia Ruhrstadion",   budget:"€18M", bval:7}
+    ]
+  },
+  "Ligue 1":{
+    flag:"🇫🇷",country:"France",
+    clubs:[
+      {name:"Paris Saint-Germain", rating:88,stadium:"Parc des Princes",      budget:"€280M",bval:100},
+      {name:"Monaco",              rating:83,stadium:"Stade Louis II",         budget:"€100M",bval:36},
+      {name:"Lille",               rating:81,stadium:"Stade Pierre-Mauroy",   budget:"€75M", bval:27},
+      {name:"Brest",               rating:79,stadium:"Stade Francis-Le Ble",  budget:"€50M", bval:18},
+      {name:"Nice",                rating:80,stadium:"Allianz Riviera",        budget:"€65M", bval:23},
+      {name:"Lyon",                rating:80,stadium:"Groupama Stadium",       budget:"€70M", bval:25},
+      {name:"Marseille",           rating:81,stadium:"Orange Velodrome",       budget:"€80M", bval:29},
+      {name:"Rennes",              rating:79,stadium:"Roazhon Park",           budget:"€55M", bval:20},
+      {name:"Lens",                rating:78,stadium:"Stade Bollaert-Delelis", budget:"€45M", bval:16},
+      {name:"Strasbourg",          rating:76,stadium:"Stade de la Meinau",     budget:"€35M", bval:13},
+      {name:"Nantes",              rating:75,stadium:"Stade de la Beaujoire",  budget:"€30M", bval:11},
+      {name:"Montpellier",         rating:74,stadium:"Stade de la Mosson",     budget:"€25M", bval:9},
+      {name:"Reims",               rating:76,stadium:"Stade Auguste-Delaune", budget:"€30M", bval:11},
+      {name:"Toulouse",            rating:75,stadium:"Stadium de Toulouse",    budget:"€28M", bval:10},
+      {name:"Le Havre",            rating:72,stadium:"Stade Oceane",           budget:"€20M", bval:7},
+      {name:"Lorient",             rating:73,stadium:"Stade du Moustoir",      budget:"€22M", bval:8},
+      {name:"Clermont",            rating:71,stadium:"Stade Gabriel-Montpied", budget:"€15M", bval:5},
+      {name:"Metz",                rating:70,stadium:"Stade Saint-Symphorien", budget:"€12M", bval:4}
+    ]
+  }
+};
+
+/* ══════════════════════════
+   STATE
+══════════════════════════ */
+var selLeague = null;
+var selClub   = null;
+var lcardEls  = {};
+
+/* ══════════════════════════
+   TRANSITIONS
+══════════════════════════ */
+function showScreen(id){
+  var next = document.getElementById(id);
+  document.querySelectorAll('.screen').forEach(function(s){
+    if(s.classList.contains('active') && s !== next){
+      s.classList.add('exit');
+      setTimeout(function(){ s.classList.remove('active'); s.classList.remove('exit'); },350);
+    }
+  });
+  setTimeout(function(){
+    next.style.display='flex';
+    next.offsetHeight;
+    next.classList.add('active');
+  },60);
+}
+
+function playClick(){
+  try{var a=new Audio("https://assets.mixkit.co/active_storage/sfx/2571/2571-preview.mp3");a.volume=0.1;a.play().catch(function(){});}catch(e){}
+}
+
+/* ══════════════════════════
+   START → LOAD → LEAGUES
+══════════════════════════ */
+document.getElementById('startScreen').addEventListener('click',function(){
+  showScreen('loadingScreen');
+  runLoader(function(){ buildLeagues(); showScreen('leagueScreen'); });
+});
+
+var loadMsgs=['Initialising...','Loading squads...','Building tactics...','Almost ready...'];
+function runLoader(cb){
+  var fill=document.getElementById('loadFill');
+  var status=document.getElementById('loadStatus');
+  var pct=0,step=0;
+  fill.style.width='0%';
+  var iv=setInterval(function(){
+    pct+=Math.random()*10+5;
+    if(pct>=100){pct=100;clearInterval(iv);setTimeout(cb,250);}
+    fill.style.width=pct+'%';
+    status.textContent=loadMsgs[Math.min(step,loadMsgs.length-1)];
+    if(pct>25*step)step++;
+  },90);
+}
+
+/* ══════════════════════════
+   LEAGUE SCREEN
+══════════════════════════ */
+function buildLeagues(){
+  var list=document.getElementById('leagueList');
+  list.innerHTML=''; lcardEls={}; selLeague=null;
+  document.getElementById('leagueNextBtn').classList.remove('show');
+
+  for(var lname in LEAGUES){
+    (function(name){
+      var L=LEAGUES[name];
+      var el=document.createElement('div');
+      el.className='lcard';
+      el.innerHTML=
+        '<div class="lc-row1">'+
+          '<div class="lc-flag">'+L.flag+'</div>'+
+          '<div class="lc-name">'+name+'</div>'+
+        '</div>'+
+        '<div class="lc-meta">'+
+          '<span><span class="lc-dot"></span>'+L.country+'</span>'+
+          '<span>&#9917; '+L.clubs.length+' clubs</span>'+
+        '</div>';
+      el.addEventListener('click',function(){ pickLeague(name,el); });
+      lcardEls[name]=el;
+      list.appendChild(el);
+    })(lname);
+  }
+}
+
+function pickLeague(name,el){
+  Object.keys(lcardEls).forEach(function(k){ lcardEls[k].classList.remove('sel'); });
+  el.classList.add('sel');
+  selLeague=name;
+  // update preview panel
+  var L=LEAGUES[name];
+  document.getElementById('lpFlag').textContent=L.flag;
+  document.getElementById('lpName').textContent=name;
+  document.getElementById('lpClubs').textContent=L.clubs.length+' clubs · '+L.country;
+  document.getElementById('leagueNextBtn').classList.add('show');
+  playClick();
+}
+
+function confirmLeague(){
+  if(!selLeague)return;
+  playClick();
+  buildClubs(selLeague);
+  showScreen('clubScreen');
+}
+
+/* ══════════════════════════
+   CLUB SCREEN
+══════════════════════════ */
+function buildClubs(lname){
+  var L=LEAGUES[lname];
+  document.getElementById('csLeagueName').textContent='⚽ '+lname;
+  document.getElementById('ciEmpty').style.display='flex';
+  document.getElementById('ciCard').classList.remove('show');
+  document.getElementById('clubConfirmBtn').classList.remove('show');
+  selClub=null;
+
+  var list=document.getElementById('clubList');
+  list.innerHTML='';
+  L.clubs.forEach(function(club){
+    var tab=document.createElement('div');
+    tab.className='ctab';
+    tab.innerHTML='<div class="ct-name">'+club.name+'</div><div class="ct-rat">&#11088; '+club.rating+'</div>';
+    tab.addEventListener('click',function(){ pickClub(club,lname,tab); });
+    list.appendChild(tab);
+  });
+}
+
+function pickClub(club,lname,tabEl){
+  document.querySelectorAll('.ctab').forEach(function(t){ t.classList.remove('active'); });
+  tabEl.classList.add('active');
+  selClub=club; playClick();
+  document.getElementById('ciEmpty').style.display='none';
+  document.getElementById('ciCard').classList.add('show');
+  document.getElementById('ciLeague').textContent=lname;
+  document.getElementById('ciName').textContent=club.name;
+  document.getElementById('ciRating').textContent=club.rating;
+  document.getElementById('ciStadium').textContent=club.stadium;
+  document.getElementById('ciBudget').textContent=club.budget;
+  document.getElementById('ciBudgetBar').style.width=(club.bval||50)+'%';
+  document.getElementById('clubConfirmBtn').classList.add('show');
+}
+
+function confirmClub(){
+  if(!selClub)return;
+  playClick();
+  loadHome();
+}
+
+/* ══════════════════════════
+   HOME SCREEN
+══════════════════════════ */
+function loadHome(){
+  document.getElementById('hClubName').textContent  = selClub.name;
+  document.getElementById('hLeagueName').textContent = selLeague+' · '+LEAGUES[selLeague].country;
+  document.getElementById('hBudget').textContent    = selClub.budget;
+  document.getElementById('hOvr').textContent       = selClub.rating;
+  document.getElementById('hOvrBig').textContent    = selClub.rating;
+
+  // find first opponent
+  var clubs = LEAGUES[selLeague].clubs;
+  var opp = clubs.find(function(c){ return c.name !== selClub.name; });
+  if(opp){
+    document.getElementById('hNextMatchTitle').textContent = selClub.name+' vs '+opp.name;
+    document.getElementById('hNextMatchSub').textContent  = selLeague+' — Matchday 1';
+  }
+
+  showScreen('homeScreen');
+}
+
+/* ══════════════════════════
+   HOME TAPS
+══════════════════════════ */
+function homeTap(id){
+  playClick();
+  var soon=['training','finances','calendar','transfers','table'];
+  if(soon.indexOf(id)>-1){ showToast('Coming soon!'); return; }
+  if(id==='squad'){ buildSquadScreen(); showScreen('squadScreen'); return; }
+  if(id==='nextmatch'){ showToast('Match engine — coming next!'); return; }
+}
+
+/* ══════════════════════════
+   TOAST
+══════════════════════════ */
+var toastTimer=null;
+function showToast(msg){
+  var t=document.getElementById('toast');
+  if(!t){
+    t=document.createElement('div');t.id='toast';
+    t.style.cssText=
+      'position:fixed;bottom:55px;left:50%;transform:translateX(-50%) translateY(10px);'+
+      'background:rgba(15,20,32,0.95);border:1px solid rgba(59,130,246,0.3);'+
+      'color:#eef2ff;font-size:12px;font-weight:700;letter-spacing:1px;'+
+      'padding:8px 18px;border-radius:10px;z-index:9999;'+
+      'opacity:0;transition:opacity .25s,transform .25s;'+
+      'backdrop-filter:blur(10px);pointer-events:none;white-space:nowrap;';
+    document.body.appendChild(t);
+  }
+  t.textContent=msg;
+  t.style.opacity='1';t.style.transform='translateX(-50%) translateY(0)';
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(function(){
+    t.style.opacity='0';t.style.transform='translateX(-50%) translateY(10px)';
+  },2000);
+}
+
+/* ══════════════════════════
+   SQUAD SCREEN
+══════════════════════════ */
+var SLOT_POS = {
+  'GK':  ['GK'],
+  'LB':  ['LB','LWB'],
+  'CB1': ['CB'],
+  'CB2': ['CB'],
+  'RB':  ['RB','RWB'],
+  'CM1': ['CM','CAM'],
+  'CDM': ['CDM','CM'],
+  'CM2': ['CM','CAM'],
+  'LW':  ['LW','LM'],
+  'ST':  ['ST','CF'],
+  'RW':  ['RW','RM']
+};
+
+var sqLineup = {};
+var sqBench  = [];
+
+function buildSquadScreen(){
+  if(!selClub){ return; }
+  document.getElementById('sqClubName').textContent   = selClub.name;
+  document.getElementById('sqLeagueName').textContent = selLeague;
+
+  var clubPlayers = [];
+  if(typeof PLAYERS !== 'undefined'){
+    for(var i=0;i<PLAYERS.length;i++){
+      if(PLAYERS[i].tm === selClub.name){ clubPlayers.push(PLAYERS[i]); }
+    }
+  }
+  clubPlayers.sort(function(a,b){ return b.ovr - a.ovr; });
+
+  sqLineup = {}; sqBench = [];
+  var used = {};
+  var slotKeys = Object.keys(SLOT_POS);
+
+  for(var s=0;s<slotKeys.length;s++){
+    var slot   = slotKeys[s];
+    var posArr = SLOT_POS[slot];
+    var found  = null;
+    for(var p=0;p<posArr.length;p++){
+      for(var j=0;j<clubPlayers.length;j++){
+        if(!used[j] && clubPlayers[j].pos===posArr[p]){
+          found=clubPlayers[j]; used[j]=true; break;
+        }
+      }
+      if(found) break;
+    }
+    if(!found){
+      for(var k=0;k<clubPlayers.length;k++){
+        if(!used[k]){ found=clubPlayers[k]; used[k]=true; break; }
+      }
+    }
+    sqLineup[slot]=found;
+  }
+
+  for(var b=0;b<clubPlayers.length;b++){
+    if(!used[b] && sqBench.length<7){ sqBench.push(clubPlayers[b]); }
+  }
+
+  for(var sk in sqLineup){
+    var pl=sqLineup[sk];
+    if(pl){
+      document.getElementById('rating-'+sk).textContent = pl.ovr;
+      document.getElementById('name-'+sk).textContent   = pl.n.split(' ').slice(-1)[0];
+    } else {
+      document.getElementById('rating-'+sk).textContent = '--';
+      document.getElementById('name-'+sk).textContent   = sk;
+    }
+  }
+
+  var subsRow=document.getElementById('subsRow');
+  subsRow.innerHTML='';
+  for(var bi=0;bi<sqBench.length;bi++){
+    (function(player){
+      var el=document.createElement('div');
+      el.className='sub-slot';
+      el.innerHTML=
+        '<div class="sub-rating">'+player.ovr+'</div>'+
+        '<div class="sub-name">'+player.n.split(' ').slice(-1)[0]+'</div>'+
+        '<div class="sub-pos-lbl">'+player.pos+'</div>';
+      el.addEventListener('click',function(){ selectSub(player,el); });
+      subsRow.appendChild(el);
+    })(sqBench[bi]);
+  }
+
+  document.getElementById('sqrEmpty').style.display='flex';
+  document.getElementById('sqrCard').classList.remove('show');
+  document.querySelectorAll('.pitch-slot').forEach(function(s){ s.classList.remove('sel-player'); });
+  document.querySelectorAll('.sub-slot').forEach(function(s){ s.classList.remove('sel-player'); });
+}
+
+function selectSlot(slotKey){
+  playClick();
+  document.querySelectorAll('.pitch-slot').forEach(function(s){ s.classList.remove('sel-player'); });
+  document.querySelectorAll('.sub-slot').forEach(function(s){ s.classList.remove('sel-player'); });
+  var el=document.getElementById('slot-'+slotKey);
+  if(el) el.classList.add('sel-player');
+  var player=sqLineup[slotKey];
+  if(player){ showPlayerInfo(player); }
+}
+
+function selectSub(player,el){
+  playClick();
+  document.querySelectorAll('.pitch-slot').forEach(function(s){ s.classList.remove('sel-player'); });
+  document.querySelectorAll('.sub-slot').forEach(function(s){ s.classList.remove('sel-player'); });
+  el.classList.add('sel-player');
+  showPlayerInfo(player);
+}
+
+function showPlayerInfo(p){
+  document.getElementById('sqrEmpty').style.display='none';
+  document.getElementById('sqrCard').classList.add('show');
+  document.getElementById('sqrOvr').textContent  = p.ovr;
+  document.getElementById('sqrPos').textContent  = p.pos;
+  document.getElementById('sqrName').textContent = p.n;
+  document.getElementById('sqrNat').textContent  = p.nat;
+  document.getElementById('sqrAge').textContent  = p.age;
+  document.getElementById('sqrHt').textContent   = p.ht  || '--';
+  document.getElementById('sqrWt').textContent   = p.wt  || '--';
+  document.getElementById('sqrFt').textContent   = p.ft  || '--';
+  setBar('pac', p.pac);
+  setBar('sho', p.sho);
+  setBar('pas', p.pas);
+  setBar('dri', p.dri);
+  setBar('def', p['def_']!==undefined ? p['def_'] : (p.def||0));
+  setBar('phy', p.phy);
+}
+
+function setBar(id,val){
+  var v=val||0;
+  document.getElementById('bar-'+id).style.width=v+'%';
+  document.getElementById('val-'+id).textContent=v;
+  var c = v>=75 ? 'linear-gradient(90deg,#10b981,#34d399)'
+        : v>=60 ? 'linear-gradient(90deg,#f59e0b,#fbbf24)'
+        :          'linear-gradient(90deg,#ef4444,#f87171)';
+  document.getElementById('bar-'+id).style.background=c;
+}
+
+</script>
+</body>
+</html>
